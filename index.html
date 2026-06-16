@@ -247,6 +247,27 @@ textarea.form-control{resize:vertical;min-height:54px;}
 /* PROGRESS LABEL */
 #prog-val{font-size:11px;color:var(--text2);margin-left:6px;}
 
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:#0a0c14;z-index:9999;display:flex;align-items:center;justify-content:center;}
+#login-screen.hidden{display:none;}
+.login-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:36px 40px;width:360px;max-width:95vw;box-shadow:0 16px 64px rgba(0,0,0,.7);text-align:center;}
+.login-logo{font-size:36px;margin-bottom:6px;}
+.login-title{font-size:20px;font-weight:700;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--text2);margin-bottom:26px;}
+.login-input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:9px;font-size:22px;color:var(--text);background:var(--surface2);outline:none;text-align:center;letter-spacing:8px;transition:border .15s;font-family:monospace;}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{width:100%;margin-top:12px;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;}
+.login-btn:hover{background:#5a7aff;}
+.login-error{color:var(--red);font-size:12px;margin-top:10px;min-height:16px;transition:opacity .2s;}
+.login-forgot{font-size:11px;color:var(--text3);margin-top:16px;cursor:pointer;text-decoration:underline;}
+.login-forgot:hover{color:var(--text2);}
+#forgot-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;align-items:center;justify-content:center;}
+#forgot-modal.open{display:flex;}
+.forgot-card{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:28px 32px;width:300px;max-width:90vw;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);}
+.forgot-card h3{font-size:15px;font-weight:700;margin-bottom:10px;}
+.forgot-pwd{font-size:30px;font-weight:700;letter-spacing:8px;color:var(--accent);margin:14px 0;font-family:monospace;background:var(--surface2);border-radius:8px;padding:12px;}
+.forgot-note{font-size:11px;color:var(--text3);margin-bottom:16px;}
+
 /* SYNC */
 .sync-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text2);transition:all .15s;}
 .sync-btn:hover{background:var(--surface2);color:var(--text);}
@@ -267,6 +288,30 @@ textarea.form-control{resize:vertical;min-height:54px;}
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🗂️</div>
+    <div class="login-title">Project Hub</div>
+    <div class="login-sub">Enter your password to continue</div>
+    <input class="login-input" id="login-input" type="password" maxlength="20" placeholder="••••••" autocomplete="current-password"
+      onkeydown="if(event.key==='Enter')attemptLogin()"/>
+    <button class="login-btn" onclick="attemptLogin()">Unlock</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-forgot" onclick="openForgot()">Forgot password?</div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div id="forgot-modal">
+  <div class="forgot-card">
+    <h3>🔑 Your Password</h3>
+    <div class="forgot-pwd" id="forgot-pwd-display"></div>
+    <div class="forgot-note">Keep this safe — don't share it with anyone.</div>
+    <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('forgot-modal').classList.remove('open')">Got it</button>
+  </div>
+</div>
 
 <!-- OVERDUE ALERT BANNER -->
 <div id="alert-banner">
@@ -1058,6 +1103,46 @@ function closeModal(e){
   if(e&&e.target!==document.getElementById('modal-overlay'))return;
   document.getElementById('modal-overlay').classList.remove('open');
   editId=null;editType=null;
+}
+
+// ═══════════════════ AUTH ═══════════════════
+// SHA-256 hash of password "090601"
+const PWD_HASH = '32ab98cfae6784c6c295ce9ec52918aa647755333f438444c8d92f0dc6ad17d7';
+// Password stored for recovery (only visible to someone with access to this device)
+const PWD_HINT = atob('MDkwNjAx'); // base64 of the password
+
+async function hashStr(s) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function attemptLogin() {
+  const val = document.getElementById('login-input').value;
+  const err = document.getElementById('login-error');
+  if (!val) { err.textContent = 'Please enter your password.'; return; }
+  const h = await hashStr(val);
+  if (h === PWD_HASH) {
+    localStorage.setItem('ph_authed', '1');
+    document.getElementById('login-screen').classList.add('hidden');
+    err.textContent = '';
+  } else {
+    err.textContent = 'Incorrect password. Try again.';
+    document.getElementById('login-input').value = '';
+    document.getElementById('login-input').focus();
+  }
+}
+
+function openForgot() {
+  document.getElementById('forgot-pwd-display').textContent = PWD_HINT;
+  document.getElementById('forgot-modal').classList.add('open');
+}
+
+// Check if already authenticated on this device
+if (localStorage.getItem('ph_authed') === '1') {
+  document.getElementById('login-screen').classList.add('hidden');
+} else {
+  // Focus the password field
+  setTimeout(()=>document.getElementById('login-input').focus(), 100);
 }
 
 // ═══════════════════ CLOUD SYNC ═══════════════════
